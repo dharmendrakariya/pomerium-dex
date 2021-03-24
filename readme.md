@@ -4,7 +4,7 @@
 
 *Flow with the diagram*
 
-![alt text](https://github.com/dharmendrakariya/pomerium-dex/blob/main/image.jpg?raw=true)
+![alt text](https://github.com/dharmendrakariya/Learning/blob/master/pomerium/image.jpg?raw=true)
 
 
 1. User makes an unauthenticated request to the service
