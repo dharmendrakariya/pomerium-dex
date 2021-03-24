@@ -35,20 +35,26 @@
 
 Now to implement this flow we have configured static dex client ```pom``` with pomerium's authenticate service redirectURL
 
+```Note: I am using dex helm chart and in backend freeipa as a ldap server```
+
 ```
 connectors:
       - config:
           bindDN: uid=dex,cn=sysaccounts,cn=etc,dc=YOURDOMAIN,dc=dev
           bindPW: mN****tG****
-          host: ipa.YOURDOMAIN.dev:636
+          host: freeipa.YOURDOMAIN.dev:636
           insecureNoSSL: false
           insecureSkipVerify: true
+
+          # (Group Search )
           groupSearch:
             baseDN: cn=groups,cn=accounts,dc=YOURDOMAIN,dc=dev
             filter: "(|(objectClass=posixGroup)(objectClass=group))"
             userAttr: DN # Use "DN" here not "uid"
             groupAttr: member
             nameAttr: cn
+
+          # (User Search)
           userSearch:
             baseDN: cn=users,cn=accounts,dc=YOURDOMAIN,dc=dev
             emailAttr: mail
@@ -68,10 +74,13 @@ connectors:
         responseTypes:
         - code
         skipApprovalScreen: false
+
       staticClients:
+      # (Here I am creating static client for pomerium)
       - id: pom
         name: pom
         redirectURIs:
+        # (pomerium authenticate service url)
         - https://authenticate.YOURDOMAIN.dev/oauth2/callback
         secret: pomerium
 
@@ -84,37 +93,48 @@ Below is configuration which supposed to be done in Pomerium
 config:
   # routes under this wildcard domain are handled by pomerium
   rootDomain: YOURDOMAIN.dev
-    # YOURDOMAIN.dev
-    # localhost.pomerium.io
 
   policy:
-    - from: https://hello.YOURDOMAIN.dev #(give any name instead of hello, this will be the proxy url to access the particular service)
-      to: http://nextcloud.nextcloud.svc.cluster.local:8080 #(give fqdn of the actual service which is being authenticated, here i=I am giving nextcloud service endpoint)
+      # (give any name instead of hello, this will be the proxy url to access the particular service)
+    - from: https://hello.YOURDOMAIN.dev
+      # (give fqdn of the actual service which is being authenticated, here I am giving nextcloud service endpoint, which is running in nextcloud namespace)
+      to: http://nextcloud.nextcloud.svc.cluster.local:8080
+
       # allowed_domains:
-      #   - YOURDOMAIN.dev #(in general give here your domain)
-      #   # - YOURDOMAIN.com
-      allowed_groups: #(If you want to give access to particular group members, I have tested this by creating devops group and members in that group, in freeipa)
+          #(in general give here your domain)
+      #   - YOURDOMAIN.dev
+
+      # (If you want to give access to particular group members, I have tested this by creating devops group and members in that group, in freeipa)
+      allowed_groups:
         - devops
-      allowed_idp_claims: #(If you want to give access to particular group members, I have tested this by creating devops group and members in that group, in freeipa)
+
+      # (If you want to give access to particular group members, I have tested this by creating devops group and members in that group, in freeipa)
+      allowed_idp_claims:
         groups:
         - devops
 
-  insecure: true # (I didn't specify the root level CAs so)
+  # (I didn't specify the root level CAs so)
+  insecure: true
 
 extraEnv:
-  POMERIUM_DEBUG: true #(This will give you details if user is not able to authenticate, ideally this should be turned off)
+  # (This will give you details if user is not able to authenticate, ideally this should be turned off)
+  POMERIUM_DEBUG: true
   LOG_LEVEL: "error"
   IDP_SCOPES: "openid,profile,email,groups,offline_access"
 
 authenticate:
-  redirectUrl: "https://authenticate.YOURDOMAIN.dev/oauth2/callback" #(This we have set in dex's static client also remember! should be same)
+  # (This we have set in dex's static client also remember! should be same)
+  redirectUrl: "https://authenticate.YOURDOMAIN.dev/oauth2/callback"
+
   idp:
     provider: oidc
     clientID: pom
     clientSecret: pomerium
-    url: http://dex.YOURDOMAIN.dev #(your dex url)
+    # (your dex url)
+    url: http://dex.YOURDOMAIN.dev
     scopes: "openid profile email groups offline_access"
-    serviceAccount: "pomerium-authenticate" #(for group based access policy)
+    # (for group based access policy)
+    serviceAccount: "pomerium-authenticate"
 
 ingress:
   enabled: true
@@ -131,6 +151,7 @@ ingress:
   annotations:
     kubernetes.io/ingress.class: nginx
     kubernetes.io/ingress.allow-http: "true"
+
 resources:
   limits:
     cpu: 150m
